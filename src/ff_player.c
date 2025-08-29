@@ -1,4 +1,4 @@
-#include "player.h"
+#include "ff_player.h"
 
 #include <stdatomic.h>
 #include <stdlib.h>
@@ -21,13 +21,13 @@
 #include "tinycthread/tinycthread.h"
 #endif
 
-#include "clock.h"
-#include "packet_queue.h"
-#include "frame_queue.h"
-#include "decoder.h"
+#include "ff_clock.h"
+#include "ff_packet_queue.h"
+#include "ff_frame_queue.h"
+#include "ff_decoder.h"
 
 enum {
-    MIN_FRAMES = 25,
+    MIN_FRAMES = 10,
     EXTERNAL_CLOCK_MIN_FRAMES = 2,
     EXTERNAL_CLOCK_MAX_FRAMES = 10,
     SAMPLE_CORRECTION_PERCENT_MAX = 10,
@@ -406,11 +406,9 @@ static int configure_video_filters(
         } else
             av_strlcatf(sws_flags_str, sizeof(sws_flags_str), "%s=%s:", entry->key, entry->value);
     }
-    {
-        const size_t sws_flags_str_len = strlen(sws_flags_str);
-        if (sws_flags_str_len != 0) {
-            sws_flags_str[sws_flags_str_len - 1] = '\0';
-        }
+    const size_t sws_flags_str_len = strlen(sws_flags_str);
+    if (sws_flags_str_len != 0) {
+        sws_flags_str[sws_flags_str_len - 1] = '\0';
     }
     graph->scale_sws_opts = av_strdup(sws_flags_str);
     const AVCodecParameters* codec_parameters = player->video_stream->codecpar;
@@ -527,7 +525,7 @@ static int configure_video_filters(
 #undef INSERT_FILT
     ret = configure_filtergraph(graph, params->filters, filter_src, last_filter);
     if (ret >= 0) {
-        player->in_video_filter  = filter_src;
+        player->in_video_filter = filter_src;
         player->out_video_filter = filter_out;
     }
 fail:
@@ -618,7 +616,7 @@ static int configure_audio_filters(
         sample_rates[0] = player->audio_target.freq;
         if ((ret = av_opt_set_int(filter_out, "all_channel_counts", 0, AV_OPT_SEARCH_CHILDREN)) < 0 ||
             (ret = av_opt_set(filter_out, "ch_layouts", bp.str, AV_OPT_SEARCH_CHILDREN)) < 0 ||
-            (ret = av_opt_set_int_list(filter_out, "sample_rates"   , sample_rates   ,  -1, AV_OPT_SEARCH_CHILDREN)) < 0) {
+            (ret = av_opt_set_int_list(filter_out, "sample_rates", sample_rates, -1, AV_OPT_SEARCH_CHILDREN)) < 0) {
             goto end;
         }
     }
@@ -1191,15 +1189,16 @@ static int read_thread(void *arg) {
         scan_all_pmts_set = true;
     }
     ret = avformat_open_input(&format_context, player->filename, player->input_format, &player->opts.format_opts);
-    if (ret < 0) {
+  if (ret < 0) {
+        avformat_free_context(format_context);
         av_log(NULL, AV_LOG_FATAL, "Could not open %s\n", player->filename);
         goto pkt_end;
     }
     if (scan_all_pmts_set) {
         av_dict_set(&player->opts.format_opts, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE);
     }
+    format_context->pb = player->io_context;
     player->format_context = format_context;
-
     if (player->opts.genpts) {
         format_context->flags |= AVFMT_FLAG_GENPTS;
     }
@@ -1503,7 +1502,6 @@ int ff_player_opts_copy(ff_player_opts_t* dst, const ff_player_opts_t* src) {
                     dst->audio_volume = src->audio_volume;
 
                     dst->find_stream_info = src->find_stream_info;
-                    dst->autorotate = src->autorotate;
 
                     return 0;
                 }
@@ -1578,9 +1576,7 @@ int ff_player_open(
 void ff_player_close(ff_player_t* player) {
     player->abort_request = true;
     thrd_join(player->read_thread, NULL);
-    if (player->io_context != NULL) {
-        avio_context_free(&player->io_context);
-    }
+
     if (player->audio_stream_index >= 0) {
         stream_close(player, player->audio_stream_index);
     }
@@ -1608,7 +1604,7 @@ ff_frame_t* ff_player_acquire_video_frame(ff_player_t* player, double *remaining
         player->realtime) {
         check_external_clock_speed(player);
     }
-    if (player->video_stream) {
+    if (player->video_stream != NULL) {
 retry:
         if (ff_frame_queue_get_frames_remaining(player->picture_queue) != 0) {
             const ff_frame_t* last_frame = ff_frame_queue_peek_last(player->picture_queue);

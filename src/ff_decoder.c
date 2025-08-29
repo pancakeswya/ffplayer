@@ -1,4 +1,4 @@
-#include "decoder.h"
+#include "ff_decoder.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -6,9 +6,9 @@
 #include <libavutil/log.h>
 #include <libavcodec/avcodec.h>
 
-#include "packet_queue.h"
-#include "frame.h"
-#include "frame_queue.h"
+#include "ff_packet_queue.h"
+#include "ff_frame.h"
+#include "ff_frame_queue.h"
 
 struct ff_decoder {
     AVPacket* packet;

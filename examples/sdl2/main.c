@@ -8,7 +8,7 @@
 #include <SDL.h>
 #include <SDL_thread.h>
 
-#include "player.h"
+#include "ff_player.h"
 
 #define SDL_AUDIO_MIN_BUFFER_SIZE 512
 #define SDL_AUDIO_MAX_CALLBACKS_PER_SEC 30
@@ -561,7 +561,6 @@ int main(const int argc, char* argv[]) {
         .genpts = genpts,
         .loop = loop,
         .find_stream_info = find_stream_info,
-        .autorotate = autorotate,
         .opaque = player,
         .on_error_cb = on_error,
         .audio_volume = startup_volume,

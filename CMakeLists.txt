@@ -8,7 +8,6 @@ option(FF_PLAYER_BUILD_EXAMPLES "Build examples" ON)
 
 if (FF_PLAYER_STATIC)
     set(BUILD_TYPE STATIC)
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 else()
     set(BUILD_TYPE SHARED)
 endif()

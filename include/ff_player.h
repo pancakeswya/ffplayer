@@ -10,7 +10,7 @@
 #include <libavutil/samplefmt.h>
 #include <libavutil/pixfmt.h>
 
-#include "frame.h"
+#include "ff_frame.h"
 
 typedef enum ff_av_sync {
     FF_AV_SYNC_AUDIO_MASTER = 0,
@@ -79,7 +79,6 @@ typedef struct ff_player_opts {
     bool loop;
 
     bool find_stream_info;
-    bool autorotate;
 
     int audio_volume;
 

@@ -1,4 +1,4 @@
-#include "frame_queue.h"
+#include "ff_frame_queue.h"
 
 #include <stdlib.h>
 
@@ -11,8 +11,8 @@
 #include "tinycthread/tinycthread.h"
 #endif
 
-#include "frame.h"
-#include "packet_queue.h"
+#include "ff_frame.h"
+#include "ff_packet_queue.h"
 
 enum {
     FF_FRAME_QUEUE_SIZE = FFMAX(FF_SAMPLE_QUEUE_SIZE, FFMAX(FF_VIDEO_PICTURE_QUEUE_SIZE, FF_SUBPICTURE_QUEUE_SIZE))

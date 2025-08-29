@@ -1,4 +1,4 @@
-#include "clock.h"
+#include "ff_clock.h"
 
 #include <math.h>
 
