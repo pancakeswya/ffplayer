@@ -1003,9 +1003,9 @@ static int stream_open(ff_player_t* player, const int stream_index, const ff_str
             AVDictionary *opts = NULL;
             ret = av_dict_copy(&opts, params->codec_opts, 0);
             if (ret >= 0) {
-                if (!av_dict_get(opts, "threads", NULL, 0)) {
-                    av_dict_set(&opts, "threads", "auto", 0);
-                }
+                // if (!av_dict_get(opts, "threads", NULL, 0)) {
+                //     av_dict_set(&opts, "threads", "auto", 0);
+                // }
                 if (stream_lowres) {
                     av_dict_set_int(&opts, "lowres", stream_lowres, 0);
                 }
@@ -1197,7 +1197,10 @@ static int read_thread(void *arg) {
     if (scan_all_pmts_set) {
         av_dict_set(&player->opts.format_opts, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE);
     }
-    format_context->pb = player->io_context;
+    if (player->io_context != NULL) {
+      format_context->flags |= AVFMT_FLAG_CUSTOM_IO;
+      format_context->pb = player->io_context;
+    }
     player->format_context = format_context;
     if (player->opts.genpts) {
         format_context->flags |= AVFMT_FLAG_GENPTS;
@@ -1496,6 +1499,7 @@ int ff_player_opts_copy(ff_player_opts_t* dst, const ff_player_opts_t* src) {
                     dst->start_time = src->start_time;
                     dst->duration = src->duration;
                     dst->genpts = src->genpts;
+                    dst->run_sync = src->run_sync;
 
                     dst->loop = src->loop;
                     dst->opaque = src->opaque;
@@ -1556,7 +1560,9 @@ int ff_player_open(
 
                         player->audio_clock_serial = -1;
                         player->av_sync_type = FF_AV_SYNC_AUDIO_MASTER;
-
+                        if (player->opts.run_sync) {
+                          return read_thread(player);
+                        }
                         if (thrd_create(&player->read_thread, read_thread, player) == thrd_success) {
                             return 0;
                         }
@@ -1573,10 +1579,15 @@ int ff_player_open(
     return ret;
 }
 
-void ff_player_close(ff_player_t* player) {
+void ff_player_abort(ff_player_t* player) {
     player->abort_request = true;
-    thrd_join(player->read_thread, NULL);
+}
 
+void ff_player_close(ff_player_t* player) {
+    if (!player->opts.run_sync) {
+        ff_player_abort(player);
+        thrd_join(player->read_thread, NULL);
+    }
     if (player->audio_stream_index >= 0) {
         stream_close(player, player->audio_stream_index);
     }
@@ -1591,6 +1602,7 @@ void ff_player_close(ff_player_t* player) {
     cnd_destroy(&player->continue_read_thread);
     ff_player_opts_destroy(&player->opts);
     av_free(player->filename);
+    memset(player, 0, sizeof(ff_player_t));
 }
 
 void ff_player_destroy(ff_player_t* player) {
@@ -1598,7 +1610,7 @@ void ff_player_destroy(ff_player_t* player) {
     free(player);
 }
 
-ff_frame_t* ff_player_acquire_video_frame(ff_player_t* player, double *remaining_time) {
+ff_frame_t* ff_player_acquire_video_frame(ff_player_t* player, double* remaining_time) {
     if (!player->paused &&
         get_master_sync_type(player) == FF_AV_SYNC_EXTERNAL_CLOCK &&
         player->realtime) {
@@ -1626,7 +1638,9 @@ retry:
 
             const double time = (double)av_gettime_relative()/1000000.0;
             if (time < player->frame_timer + delay) {
-                *remaining_time = FFMIN(player->frame_timer + delay - time, *remaining_time);
+                if (remaining_time != NULL) {
+                   *remaining_time = FFMIN(player->frame_timer + delay - time, *remaining_time);
+                }
                 goto display;
             }
 

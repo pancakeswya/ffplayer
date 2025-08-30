@@ -77,6 +77,7 @@ typedef struct ff_player_opts {
     int64_t duration;
     bool genpts;
     bool loop;
+    bool run_sync;
 
     bool find_stream_info;
 
@@ -111,6 +112,7 @@ extern int ff_player_open(
     AVIOContext* io_context,
     const ff_player_opts_t* opts
 );
+extern void ff_player_abort(ff_player_t* player);
 extern void ff_player_close(ff_player_t* player);
 extern void ff_player_destroy(ff_player_t* player);
 
