@@ -83,6 +83,10 @@ else()
     target_compile_definitions(ff_player PRIVATE HAVE_THREAD_H)
 endif()
 
+if(MSVC)
+    target_compile_options(ff_player PRIVATE /experimental:c11atomics)
+endif()
+
 target_include_directories(ff_player PUBLIC ${FFMPEG_INCLUDE_DIRS})
 target_link_directories(ff_player PUBLIC ${FFMPEG_LIBRARY_DIRS})
 target_link_libraries(ff_player PUBLIC ${FFMPEG_LIBRARIES})
